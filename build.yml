@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Android APK
 
 on:
   push:
@@ -32,37 +32,50 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Manual Android SDK Setup (Fix for AIDL error)
+      - name: Force Create Android SDK Structure (Critical Fix)
         run: |
-          # ایجاد پوشه‌های مورد نیاز Buildozer
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk/build-tools/34.0.0
+          # تعریف مسیر اصلی که Buildozer به دنبال آن می‌گردد
+          SDK_PATH="$HOME/.buildozer/android/platform/android-sdk"
+          BUILD_TOOLS_PATH="$SDK_PATH/build-tools/34.0.0"
+          CMDLINE_TOOLS_PATH="$SDK_PATH/cmdline-tools/latest"
           
-          # دانلود و نصب اندروید کامپوننت‌ها به صورت مستقیم
-          # این بخش برای اطمینان از وجود فایل aidl است
+          echo "Creating directories at: $BUILD_TOOLS_PATH"
+          
+          # ساخت تمام مسیرهای ممکن به صورت تهاجمی
+          mkdir -p "$BUILD_TOOLS_PATH"
+          mkdir -p "$CMDLINE_TOOLS_PATH"
+          
+          # دانلود Command Line Tools گوگل
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
           unzip cmdline-tools.zip
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
-          mv cmdline-tools $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest
           
-          # تنظیم متغیرهای محیطی
-          echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+          # انتقال ابزارها به مسیر درست
+          mv cmdline-tools/* "$CMDLINE_TOOLS_PATH/"
+          rm -rf cmdline-tools
+          rm cmdline-tools.zip
+          
+          # تنظیم متغیرهای محیطی برای کل سیستم
+          echo "ANDROID_SDK_ROOT=$SDK_PATH" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$SDK_PATH" >> $GITHUB_ENV
+          echo "PATH=$BUILD_TOOLS_PATH:$PATH" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
+          # اطمینان از وجود فایل spec
           if [ ! -f buildozer.spec ]; then
             buildozer init
           fi
           
-          # اصلاح فایل spec برای اطمینان از استفاده از لایسنس و تنظیمات صحیح
-          sed -i 's/^#\?android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
+          # فعال‌سازی لایسنس با روش جایگزین (جایگزینی متن مستقیم)
+          sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
+          sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
           
-          # اجرای بیلد با دستور yes برای رد کردن لایسنس‌ها
+          # اجرای بیلد با اجازه دادن به تمام سوالات احتمالی
           yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Drought-Stress-RF-APK
+          name: Android-APK-Result
           path: bin/*.apk
