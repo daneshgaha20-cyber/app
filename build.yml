@@ -6,52 +6,49 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # استفاده از نسخه پایدارتر
 
     steps:
       - uses: actions/checkout@v4
 
-      # 1. نصب Java 17 (پیش‌نیاز ساخت اندروید)
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          distribution: temurin
-          java-version: 17
+          python-version: '3.9'  # نسخه پایدارتر
 
-      # 2. نصب Android SDK
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      # 3. نصب Build-Tools و پذیرش مجوزها
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-      # 4. افزودن مسیر Build-Tools به PATH (تا دستور aidl پیدا شود)
-      - name: Add build-tools to PATH
-        run: echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> $GITHUB_PATH
-
-      # 5. نصب ابزارهای سیستم و وابستگی‌های Buildozer
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libstdc++6 zip unzip python3-pip git
+          sudo apt-get install -y \
+            python3-pip \
+            python3-dev \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            libssl-dev \
+            libffi-dev \
+            liblzma-dev \
+            libsqlite3-dev
 
-      # 6. نصب Buildozer و Cython
       - name: Install buildozer
         run: |
+          pip install --upgrade pip
           pip install buildozer cython
 
-      # 7. ساخت اپلیکیشن با Buildozer (وارد کردن 'yes' برای پذیرش مجوزها)
-      - name: Build with Buildozer
+      - name: Build APK
         run: |
           buildozer init
           sed -i 's/title = .*/title = Drought Stress RF/' buildozer.spec
           sed -i 's/package.name = .*/package.name = droughtstressrf/' buildozer.spec
-          yes | buildozer android debug
+          # تنظیمات ویژه برای جلوگیری از خطای Aidl
+          sed -i 's/#android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
+          sed -i 's/#android.ndk = .*/android.ndk = 25b/' buildozer.spec
+          sed -i 's/#android.sdk = .*/android.sdk = 33/' buildozer.spec
+          sed -i 's/#android.minapi = .*/android.minapi = 21/' buildozer.spec
+          buildozer android debug
 
-      # 8. آپلود فایل APK نهایی
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
