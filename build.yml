@@ -1,42 +1,27 @@
-name: Build Android APK
+name: Build APK
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      
+      - name: Build APK with Docker
+        uses: docker://kivy/buildozer:latest
         with:
-          python-version: '3.9'
-
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
-
-      - name: Install Buildozer and Cython
-        run: |
-          pip install --upgrade pip
-          pip install Cython==0.29.33 buildozer
-
-      - name: Build with Buildozer
-        run: |
-          # این دستور بسیار مهم است: 
-          # ما از محیط کاربری فعلی استفاده می‌کنیم و اجازه می‌دهیم buildozer خودش SDK را دانلود کند
-          yes | buildozer -v android debug
-
+          args: |
+            buildozer init
+            sed -i 's/title = .*/title = Drought Stress RF/' buildozer.spec
+            sed -i 's/package.name = .*/package.name = droughtstressrf/' buildozer.spec
+            buildozer android debug
+            
       - name: Upload APK
-        uses: actions/upload-artifact@v3
-        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: android-apk
+          name: Drought-Stress-RF-APK
           path: bin/*.apk
