@@ -18,12 +18,10 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install Android SDK and Build Tools
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          # نصب ابزارهای اندروید برای رفع خطای AIDL
-          sudo apt-get install -y android-sdk
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
 
       - name: Install Buildozer and Cython
         run: |
@@ -32,11 +30,13 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          # اضافه کردن فلگ برای جلوگیری از درخواست‌های تعاملی (Interactive)
+          # این دستور بسیار مهم است: 
+          # ما از محیط کاربری فعلی استفاده می‌کنیم و اجازه می‌دهیم buildozer خودش SDK را دانلود کند
           yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: android-apk
           path: bin/*.apk
