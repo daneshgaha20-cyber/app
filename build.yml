@@ -1,56 +1,42 @@
-name: Build APK
+name: Build Android APK
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04  # استفاده از نسخه پایدارتر
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.9'  # نسخه پایدارتر
+          python-version: '3.9'
 
-      - name: Install dependencies
+      - name: Install Android SDK and Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            python3-pip \
-            python3-dev \
-            build-essential \
-            git \
-            zip \
-            unzip \
-            openjdk-17-jdk \
-            libssl-dev \
-            libffi-dev \
-            liblzma-dev \
-            libsqlite3-dev
+          sudo apt-get install -y openjdk-17-jdk zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          # نصب ابزارهای اندروید برای رفع خطای AIDL
+          sudo apt-get install -y android-sdk
 
-      - name: Install buildozer
+      - name: Install Buildozer and Cython
         run: |
           pip install --upgrade pip
-          pip install buildozer cython
+          pip install Cython==0.29.33 buildozer
 
-      - name: Build APK
+      - name: Build with Buildozer
         run: |
-          buildozer init
-          sed -i 's/title = .*/title = Drought Stress RF/' buildozer.spec
-          sed -i 's/package.name = .*/package.name = droughtstressrf/' buildozer.spec
-          # تنظیمات ویژه برای جلوگیری از خطای Aidl
-          sed -i 's/#android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
-          sed -i 's/#android.ndk = .*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/#android.sdk = .*/android.sdk = 33/' buildozer.spec
-          sed -i 's/#android.minapi = .*/android.minapi = 21/' buildozer.spec
-          buildozer android debug
+          # اضافه کردن فلگ برای جلوگیری از درخواست‌های تعاملی (Interactive)
+          yes | buildozer -v android debug
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: Drought-Stress-RF-APK
+          name: android-apk
           path: bin/*.apk
