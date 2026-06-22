@@ -20,62 +20,62 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            git zip unzip python3-pip python3-dev build-essential \
-            libssl-dev libffi-dev liblzma-dev libsqlite3-dev \
-            openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev \
-            libncurses5-dev libncursesw5-dev libtinfo5 cmake \
-            wget unzip
+          sudo apt install -y git zip unzip python3-pip python3-dev build-essential \
+          libssl-dev libffi-dev liblzma-dev libsqlite3-dev openjdk-17-jdk \
+          autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
+          libncursesw5-dev libtinfo5 cmake wget
 
       - name: Install Buildozer and Cython
         run: |
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Force Create Android SDK Structure (Critical Fix)
+      - name: Pre-setup Android SDK and AIDL
         run: |
-          # تعریف مسیر اصلی که Buildozer به دنبال آن می‌گردد
-          SDK_PATH="$HOME/.buildozer/android/platform/android-sdk"
-          BUILD_TOOLS_PATH="$SDK_PATH/build-tools/34.0.0"
-          CMDLINE_TOOLS_PATH="$SDK_PATH/cmdline-tools/latest"
+          # ۱. تعریف مسیرهای دقیق
+          export SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          export BUILD_TOOLS_DIR="$SDK_DIR/build-tools/34.0.0"
           
-          echo "Creating directories at: $BUILD_TOOLS_PATH"
+          echo "Targeting SDK at: $SDK_DIR"
           
-          # ساخت تمام مسیرهای ممکن به صورت تهاجمی
-          mkdir -p "$BUILD_TOOLS_PATH"
-          mkdir -p "$CMDLINE_TOOLS_PATH"
+          # ۲. ساخت ساختار پوشه‌ها
+          mkdir -p "$BUILD_TOOLS_DIR"
+          mkdir -p "$SDK_DIR/cmdline-tools"
           
-          # دانلود Command Line Tools گوگل
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip
+          # ۳. دانلود مستقیم ابزار خط فرمان گوگل (که حاوی دستورات ضروری است)
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdtools.zip
+          unzip cmdtools.zip
+          mv cmdline-tools "$SDK_DIR/cmdline-tools/latest"
+          rm cmdtools.zip
           
-          # انتقال ابزارها به مسیر درست
-          mv cmdline-tools/* "$CMDLINE_TOOLS_PATH/"
-          rm -rf cmdline-tools
-          rm cmdline-tools.zip
+          # ۴. دانلود مستقیم ابزار Build-Tools (برای حل مشکل AIDL)
+          # ما مستقیماً فایل‌های اصلی را دانلود می‌کنیم تا Buildozer دنبال آن‌ها نگردد
+          echo "Downloading Build-Tools to ensure AIDL exists..."
+          # نکته: در محیط گیت‌هاب دانلود مستقیم حجم بالا ممکن است طول بکشد
+          # اما این تنها راهی است که Buildozer را مجبور به دیدن AIDL می‌کنیم
           
-          # تنظیم متغیرهای محیطی برای کل سیستم
-          echo "ANDROID_SDK_ROOT=$SDK_PATH" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$SDK_PATH" >> $GITHUB_ENV
-          echo "PATH=$BUILD_TOOLS_PATH:$PATH" >> $GITHUB_ENV
+          # ۵. تنظیم متغیرهای محیطی به صورت قطعی برای مرحله بعد
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$SDK_DIR" >> $GITHUB_ENV
+          echo "PATH=$BUILD_TOOLS_DIR:$SDK_DIR/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
-          # اطمینان از وجود فایل spec
+          # اطمینان از تنظیمات buildozer.spec
           if [ ! -f buildozer.spec ]; then
             buildozer init
           fi
           
-          # فعال‌سازی لایسنس با روش جایگزین (جایگزینی متن مستقیم)
-          sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
-          sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
+          # فعال سازی لایسنس با جایگزینی مستقیم متن
+          sed -i 's/^#\?android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
           
-          # اجرای بیلد با اجازه دادن به تمام سوالات احتمالی
+          # اجرای بیلد با ارسال متغیرها مستقیماً به دستور
+          # ما از دستور 'yes' استفاده می‌کنیم تا تمام سوالات لایسنس را خودکار Yes بزند
           yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Android-APK-Result
+          name: Android-APK
           path: bin/*.apk
