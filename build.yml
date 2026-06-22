@@ -1,1 +1,59 @@
+name: Build APK
 
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. نصب Java 17 (پیش‌نیاز ساخت اندروید)
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # 2. نصب Android SDK
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 3. نصب Build-Tools و پذیرش مجوزها
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      # 4. افزودن مسیر Build-Tools به PATH (تا دستور aidl پیدا شود)
+      - name: Add build-tools to PATH
+        run: echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> $GITHUB_PATH
+
+      # 5. نصب ابزارهای سیستم و وابستگی‌های Buildozer
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libstdc++6 zip unzip python3-pip git
+
+      # 6. نصب Buildozer و Cython
+      - name: Install buildozer
+        run: |
+          pip install buildozer cython
+
+      # 7. ساخت اپلیکیشن با Buildozer (وارد کردن 'yes' برای پذیرش مجوزها)
+      - name: Build with Buildozer
+        run: |
+          buildozer init
+          sed -i 's/title = .*/title = Drought Stress RF/' buildozer.spec
+          sed -i 's/package.name = .*/package.name = droughtstressrf/' buildozer.spec
+          yes | buildozer android debug
+
+      # 8. آپلود فایل APK نهایی
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drought-Stress-RF-APK
+          path: bin/*.apk
